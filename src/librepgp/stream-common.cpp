@@ -42,13 +42,11 @@
 #ifdef HAVE_LIMITS_H
 #include <limits.h>
 #endif
-#ifndef HAVE_MKSTEMP
-#include "file-utils.h"
-#endif
 #include <rnp/rnp_def.h>
 #include "rnp.h"
 #include "stream-common.h"
 #include "types.h"
+#include "file-utils.h"
 #include <algorithm>
 
 bool
@@ -400,14 +398,72 @@ file_src_close(pgp_source_t *src)
     }
 }
 
+static rnp_result_t
+init_fd_src(pgp_source_t *src, int fd, uint64_t *size)
+{
+    if (!init_src_common(src, sizeof(pgp_source_file_param_t))) {
+        return RNP_ERROR_OUT_OF_MEMORY;
+    }
+
+    pgp_source_file_param_t *param = (pgp_source_file_param_t *) src->param;
+    param->fd = fd;
+    src->read = file_src_read;
+    src->close = file_src_close;
+    src->type = PGP_STREAM_FILE;
+    src->size = size ? *size : 0;
+    src->knownsize = !!size;
+
+    return RNP_SUCCESS;
+}
+
+#ifdef _WIN32
+rnp_result_t
+init_file_src_w(pgp_source_t *src, const wchar_t *path)
+{
+    int               fd;
+    struct _stat64i32 st;
+
+    if (_wstat(path, &st) != 0) {
+        RNP_LOG("can't stat '%S'", path);
+        return RNP_ERROR_READ;
+    }
+
+    // read call may succeed on directory depending on OS type
+    if (S_ISDIR(st.st_mode)) {
+        RNP_LOG("source is directory");
+        return RNP_ERROR_BAD_PARAMETERS;
+    }
+
+    int flags = O_RDONLY;
+#ifdef HAVE_O_BINARY
+    flags |= O_BINARY;
+#else
+#ifdef HAVE__O_BINARY
+    flags |= _O_BINARY;
+#endif
+#endif
+    fd = _wopen(path, flags, 0);
+
+    if (fd < 0) {
+        RNP_LOG("can't open '%S'", path);
+        return RNP_ERROR_READ;
+    }
+    uint64_t     size = st.st_size;
+    rnp_result_t ret = init_fd_src(src, fd, &size);
+    if (ret) {
+        close(fd);
+    }
+    return ret;
+}
+#endif
+
 rnp_result_t
 init_file_src(pgp_source_t *src, const char *path)
 {
-    int                      fd;
-    struct stat              st;
-    pgp_source_file_param_t *param;
+    int         fd;
+    struct stat st;
 
-    if (stat(path, &st) != 0) {
+    if (rnp_stat(path, &st) != 0) {
         RNP_LOG("can't stat '%s'", path);
         return RNP_ERROR_READ;
     }
@@ -426,27 +482,18 @@ init_file_src(pgp_source_t *src, const char *path)
     flags |= _O_BINARY;
 #endif
 #endif
-    fd = open(path, flags);
+    fd = rnp_open(path, flags, 0);
 
     if (fd < 0) {
         RNP_LOG("can't open '%s'", path);
         return RNP_ERROR_READ;
     }
-
-    if (!init_src_common(src, sizeof(pgp_source_file_param_t))) {
+    uint64_t     size = st.st_size;
+    rnp_result_t ret = init_fd_src(src, fd, &size);
+    if (ret) {
         close(fd);
-        return RNP_ERROR_OUT_OF_MEMORY;
     }
-
-    param = (pgp_source_file_param_t *) src->param;
-    param->fd = fd;
-    src->read = file_src_read;
-    src->close = file_src_close;
-    src->type = PGP_STREAM_FILE;
-    src->size = st.st_size;
-    src->knownsize = 1;
-
-    return RNP_SUCCESS;
+    return ret;
 }
 
 rnp_result_t
@@ -757,7 +804,7 @@ file_dst_close(pgp_dest_t *dst, bool discard)
     if (dst->type == PGP_STREAM_FILE) {
         close(param->fd);
         if (discard) {
-            unlink(param->path);
+            rnp_unlink(param->path);
         }
     }
 
@@ -803,7 +850,7 @@ init_file_dest(pgp_dest_t *dst, const char *path, bool overwrite)
     }
 
     /* check whether file/dir already exists */
-    if (!stat(path, &st)) {
+    if (!rnp_stat(path, &st)) {
         if (!overwrite) {
             RNP_LOG("file already exists: '%s'", path);
             return RNP_ERROR_WRITE;
@@ -827,7 +874,8 @@ init_file_dest(pgp_dest_t *dst, const char *path, bool overwrite)
     flags |= _O_BINARY;
 #endif
 #endif
-    fd = open(path, flags, S_IRUSR | S_IWUSR);
+    fd = rnp_open(path, flags, S_IRUSR | S_IWUSR);
+
     if (fd < 0) {
         RNP_LOG("failed to create file '%s'. Error %d.", path, errno);
         return RNP_ERROR_WRITE;
@@ -848,7 +896,7 @@ file_tmpdst_finish(pgp_dest_t *dst)
     pgp_dest_file_param_t *param = (pgp_dest_file_param_t *) dst->param;
     size_t                 plen = 0;
     struct stat            st;
-    char                   origpath[PATH_MAX] = {0};
+    char                   origpath[PATH_MAX] = {0}; // TODO: utf8 len?
 
     if (!param) {
         return RNP_ERROR_BAD_PARAMETERS;
@@ -866,7 +914,7 @@ file_tmpdst_finish(pgp_dest_t *dst)
     param->fd = -1;
 
     /* check if file already exists */
-    if (!stat(origpath, &st)) {
+    if (!rnp_stat(origpath, &st)) {
         if (!param->overwrite) {
             RNP_LOG("target path already exists");
             return RNP_ERROR_BAD_STATE;
@@ -874,7 +922,7 @@ file_tmpdst_finish(pgp_dest_t *dst)
 #ifdef _WIN32
         /* rename() call on Windows fails if destination exists */
         else {
-            unlink(origpath);
+            rnp_unlink(origpath);
         }
 #endif
 
@@ -885,7 +933,7 @@ file_tmpdst_finish(pgp_dest_t *dst)
         }
     }
 
-    if (rename(param->path, origpath)) {
+    if (rnp_rename(param->path, origpath)) {
         RNP_LOG("failed to rename temporary path to target file: %s", strerror(errno));
         return RNP_ERROR_BAD_STATE;
     }
@@ -906,7 +954,7 @@ file_tmpdst_close(pgp_dest_t *dst, bool discard)
     if (!dst->finished && (dst->type == PGP_STREAM_FILE)) {
         close(param->fd);
         if (discard) {
-            unlink(param->path);
+            rnp_unlink(param->path);
         }
     }
 
@@ -927,7 +975,7 @@ init_tmpfile_dest(pgp_dest_t *dst, const char *path, bool overwrite)
         RNP_LOG("failed to build file path");
         return RNP_ERROR_BAD_PARAMETERS;
     }
-#ifdef HAVE_MKSTEMP
+#if defined(HAVE_MKSTEMP) && !defined(_WIN32)
     int fd = mkstemp(tmp);
 #else
     int fd = rnp_mkstemp(tmp);

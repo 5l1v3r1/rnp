@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, [Ribose Inc](https://www.ribose.com).
+ * Copyright (c) 2017-2020 [Ribose Inc](https://www.ribose.com).
  * All rights reserved.
  *
  * This code is originally derived from software contributed to
@@ -58,45 +58,68 @@
 #include "pgp-key.h"
 #include "fingerprint.h"
 #include "crypto/hash.h"
+#include "file-utils.h"
+#ifdef _WIN32
+#include "str-utils.h"
+#endif
 
 bool
 rnp_key_store_load_from_path(rnp_key_store_t *         key_store,
                              const pgp_key_provider_t *key_provider)
 {
-    DIR *          dir;
-    bool           rc;
-    pgp_source_t   src = {};
+    bool         rc;
+    pgp_source_t src = {};
+#ifdef _WIN32
+    struct _wdirent *ent;
+#else
     struct dirent *ent;
-    char           path[MAXPATHLEN];
+#endif
 
     if (key_store->format == PGP_KEY_STORE_G10) {
-        dir = opendir(key_store->path.c_str());
+        auto dir = rnp_opendir(key_store->path.c_str());
         if (dir == NULL) {
             RNP_LOG(
               "Can't open G10 directory %s: %s", key_store->path.c_str(), strerror(errno));
             return false;
         }
 
-        while ((ent = readdir(dir)) != NULL) {
+        while ((ent = rnp_readdir(dir)) != NULL) {
+#ifdef _WIN32
+            if (!wcscmp(ent->d_name, L".") || !wcscmp(ent->d_name, L"..")) {
+                continue;
+            }
+
+            std::wstring path_w = wstr_from_utf8(key_store->path) + L'/' + ent->d_name;
+            RNP_DLOG("Loading G10 key from file '%S'", path_w.c_str());
+
+            if (init_file_src_w(&src, path_w.c_str())) {
+                RNP_LOG("failed to read file %S", path_w.c_str());
+                continue;
+            }
+#else
             if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..")) {
                 continue;
             }
 
-            snprintf(path, sizeof(path), "%s/%s", key_store->path.c_str(), ent->d_name);
-            RNP_DLOG("Loading G10 key from file '%s'", path);
+            std::string path = key_store->path + '/' + ent->d_name;
+            RNP_DLOG("Loading G10 key from file '%s'", path.c_str());
 
-            if (init_file_src(&src, path)) {
-                RNP_LOG("failed to read file %s", path);
+            if (init_file_src(&src, path.c_str())) {
+                RNP_LOG("failed to read file %s", path.c_str());
                 continue;
             }
-
+#endif
             // G10 may don't read one file, so, ignore it!
             if (!rnp_key_store_g10_from_src(key_store, &src, key_provider)) {
-                RNP_LOG("Can't parse file: %s", path);
+#ifdef _WIN32
+                RNP_LOG("Can't parse file: %S", path_w.c_str());
+#else
+                RNP_LOG("Can't parse file: %s", path.c_str());
+#endif
             }
             src_close(&src);
         }
-        closedir(dir);
+        rnp_closedir(dir);
         return true;
     }
 
@@ -138,11 +161,11 @@ rnp_key_store_write_to_path(rnp_key_store_t *key_store)
 
     /* write g10 key store to the directory */
     if (key_store->format == PGP_KEY_STORE_G10) {
-        char path[MAXPATHLEN];
+        char path[MAXPATHLEN]; // TODO: utf8 on Windows
         char grips[PGP_FINGERPRINT_HEX_SIZE];
 
         struct stat path_stat;
-        if (stat(key_store->path.c_str(), &path_stat) != -1) {
+        if (rnp_stat(key_store->path.c_str(), &path_stat) != -1) {
             if (!S_ISDIR(path_stat.st_mode)) {
                 RNP_LOG("G10 keystore should be a directory: %s", key_store->path.c_str());
                 return false;

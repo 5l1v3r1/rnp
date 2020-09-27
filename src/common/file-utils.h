@@ -28,9 +28,24 @@
 #define RNP_FILE_UTILS_H_
 
 #include <stdint.h>
+#include <stdio.h>
+#include <dirent.h>
 
-bool    rnp_file_exists(const char *path);
 int64_t rnp_filemtime(const char *path);
+int     rnp_open(const char *filename, int oflag, int pmode);
+FILE *  rnp_fopen(const char *filename, const char *mode);
+int     rnp_stat(const char *filename, struct stat *statbuf);
+int     rnp_rename(const char *oldpath, const char *newpath);
+#ifdef _WIN32
+int    rnp_mkdir(const char *path);
+_WDIR *rnp_opendir(const char *path);
+#define rnp_readdir _wreaddir
+#define rnp_closedir _wclosedir
+#else
+DIR *rnp_opendir(const char *path);
+#define rnp_readdir readdir
+#define rnp_closedir closedir
+#endif
 
 /** @private
  *  generate a temporary file name based on TMPL.  TMPL must match the

@@ -189,6 +189,13 @@ bool src_peek_line(pgp_source_t *src, char *buf, size_t len, size_t *read);
  **/
 rnp_result_t init_file_src(pgp_source_t *src, const char *path);
 
+/** @brief init file source
+ *  @param src pre-allocated source structure
+ *  @param path path to the file
+ *  @return RNP_SUCCESS or error code
+ **/
+rnp_result_t init_file_src_w(pgp_source_t *src, const wchar_t *path);
+
 /** @brief init stdin source
  *  @param src pre-allocated source structure
  *  @return RNP_SUCCESS or error code

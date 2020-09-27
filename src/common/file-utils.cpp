@@ -34,21 +34,115 @@
 #include <stdio.h>
 #include "uniwin.h"
 #include <errno.h>
-#include <locale>
-#include <codecvt>
-#include <random>
+#else
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#endif // !_MSC_VER
+#ifdef _WIN32
+#include <random> // for rnp_mkstemp
+#include "str-utils.h"
+#endif
 #ifdef HAVE_FCNTL_H
 #include <fcntl.h>
 #endif
+#include <rnp/rnp_sdk.h>
+
+extern "C" {
+int
+rnp_unlink(const char *filename)
+{
+#ifdef _WIN32
+    return _wunlink(wstr_from_utf8(filename).c_str());
 #else
-#include <sys/stat.h>
-#endif // _MSC_VER
+    return unlink(filename);
+#endif
+}
 
 bool
 rnp_file_exists(const char *path)
 {
     struct stat st;
-    return stat(path, &st) == 0 && S_ISREG(st.st_mode);
+    return rnp_stat(path, &st) == 0 && S_ISREG(st.st_mode);
+}
+
+bool
+rnp_dir_exists(const char *path)
+{
+    struct stat st;
+    return rnp_stat(path, &st) == 0 && S_ISDIR(st.st_mode);
+}
+
+bool
+rnp_path_exists(const char *path)
+{
+    struct stat st;
+    return rnp_stat(path, &st) == 0;
+}
+}
+
+int
+rnp_open(const char *filename, int oflag, int pmode)
+{
+#ifdef _WIN32
+    return _wopen(wstr_from_utf8(filename).c_str(), oflag, pmode);
+#else
+    return open(filename, oflag, pmode);
+#endif
+}
+
+FILE *
+rnp_fopen(const char *filename, const char *mode)
+{
+#ifdef _WIN32
+    return _wfopen(wstr_from_utf8(filename).c_str(), wstr_from_utf8(mode).c_str());
+#else
+    return fopen(filename, mode);
+#endif
+}
+
+int
+rnp_stat(const char *filename, struct stat *statbuf)
+{
+#ifdef _WIN32
+    static_assert(sizeof(struct stat) == sizeof(struct _stat64i32),
+                  "stat is expected to match _stat64i32");
+    return _wstat64i32(wstr_from_utf8(filename).c_str(), (struct _stat64i32 *) statbuf);
+#else
+    return stat(filename, statbuf);
+#endif
+}
+
+#ifdef _WIN32
+int
+rnp_mkdir(const char *path)
+{
+    return _wmkdir(wstr_from_utf8(path).c_str());
+}
+#endif
+
+int
+rnp_rename(const char *oldpath, const char *newpath)
+{
+#ifdef _WIN32
+    return _wrename(wstr_from_utf8(oldpath).c_str(), wstr_from_utf8(newpath).c_str());
+#else
+    return rename(oldpath, newpath);
+#endif
+}
+
+#ifdef _WIN32
+_WDIR *
+#else
+DIR *
+#endif
+rnp_opendir(const char *path)
+{
+#ifdef _WIN32
+    return _wopendir(wstr_from_utf8(path).c_str());
+#else
+    return opendir(path);
+#endif
 }
 
 /* return the file modification time */
@@ -57,14 +151,14 @@ rnp_filemtime(const char *path)
 {
     struct stat st;
 
-    if (stat(path, &st) != 0) {
+    if (rnp_stat(path, &st) != 0) {
         return 0;
     } else {
         return st.st_mtime;
     }
 }
 
-#ifdef _MSC_VER
+#ifdef _WIN32
 static const char letters[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
 /** @private
@@ -83,8 +177,7 @@ rnp_mkstemp(char *tmpl)
         errno = EINVAL;
         return -1;
     }
-    std::wstring_convert<std::codecvt_utf8<wchar_t>> utf8conv;
-    std::wstring tmpl_w = utf8conv.from_bytes(tmpl, tmpl + len - mask_length);
+    std::wstring tmpl_w = wstr_from_utf8(tmpl, tmpl + len - mask_length);
 
     /* This is where the Xs start.  */
     char *XXXXXX = &tmpl[len - mask_length];
@@ -109,7 +202,7 @@ rnp_mkstemp(char *tmpl)
 
         int flags = O_WRONLY | O_CREAT | O_EXCL | O_BINARY;
         int fd =
-          _wopen((tmpl_w + utf8conv.from_bytes(XXXXXX)).c_str(), flags, _S_IREAD | _S_IWRITE);
+          _wopen((tmpl_w + wstr_from_utf8(XXXXXX)).c_str(), flags, _S_IREAD | _S_IWRITE);
         if (fd != -1) {
             errno = save_errno;
             return fd;
@@ -121,4 +214,4 @@ rnp_mkstemp(char *tmpl)
     errno = EEXIST;
     return -1;
 }
-#endif // _MSC_VER
+#endif // _WIN32

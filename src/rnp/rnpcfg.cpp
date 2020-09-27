@@ -49,6 +49,100 @@
 #include <regex>
 #endif
 
+#ifdef _WIN32
+#include "str-utils.h"
+#include <windows.h>
+#include <vector>
+#include <stdexcept>
+
+static bool
+contains_non_ascii(int argc, char **argv)
+{
+    for (int i = 0; i < argc; i++) {
+        for (auto sz = argv[i]; *sz; sz++) {
+            if ((*sz & 0x7F) != *sz) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+static std::vector<std::string>
+get_utf8_args()
+{
+    int       arg_nb;
+    wchar_t **arg_w;
+
+    arg_w = CommandLineToArgvW(GetCommandLineW(), &arg_nb);
+    if (!arg_w) {
+        throw std::runtime_error("CommandLineToArgvW failed");
+    }
+
+    try {
+        std::vector<std::string> result;
+        result.reserve(arg_nb);
+        for (int i = 0; i < arg_nb; i++) {
+            auto utf8 = wstr_to_utf8(arg_w[i]);
+            result.push_back(utf8);
+        }
+        LocalFree(arg_w);
+        return result;
+    } catch (...) {
+        LocalFree(arg_w);
+        throw;
+    }
+}
+
+void
+rnp_win_clear_args(int argc, char **argv)
+{
+    for (int i = 0; i < argc; i++) {
+        if (argv[i]) {
+            free(argv[i]);
+        }
+    }
+    delete argv;
+}
+
+bool
+rnp_win_substitute_cmdline_args(int *argc, char ***argv)
+{
+    //    if (!contains_non_ascii(*argc, *argv)) {
+    //        return false;
+    //    }
+    int    argc_utf8 = 0;
+    char **argv_utf8_cstrs = NULL;
+    try {
+        auto argv_utf8_strings = get_utf8_args();
+        argc_utf8 = argv_utf8_strings.size();
+        if (argc_utf8 != *argc) {
+            throw std::range_error("Unexpected number of arguments from unicode command line");
+        }
+        argv_utf8_cstrs = new (std::nothrow) char *[argc_utf8]();
+        if (!argv_utf8_cstrs) {
+            throw std::bad_alloc();
+        }
+        for (int i = 0; i < argc_utf8; i++) {
+            auto arg_utf8 = strdup(argv_utf8_strings[i].c_str());
+            if (!arg_utf8) {
+                throw std::bad_alloc();
+            }
+            argv_utf8_cstrs[i] = arg_utf8;
+        }
+    } catch (...) {
+        if (argv_utf8_cstrs) {
+            rnp_win_clear_args(argc_utf8, argv_utf8_cstrs);
+        }
+        throw;
+    }
+    *argc = argc_utf8;
+    *argv = argv_utf8_cstrs;
+    return true;
+}
+
+#endif
+
 typedef enum rnp_cfg_val_type_t {
     RNP_CFG_VAL_NULL = 0,
     RNP_CFG_VAL_INT = 1,

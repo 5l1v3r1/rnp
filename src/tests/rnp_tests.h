@@ -193,6 +193,8 @@ void test_ffi_clear_keys(void **state);
 
 void test_ffi_save_keys(void **state);
 
+void test_ffi_load_save_keys_to_utf8_path(void **state);
+
 void test_ffi_encrypt_pass(void **state);
 
 void test_ffi_encrypt_pass_provider(void **state);

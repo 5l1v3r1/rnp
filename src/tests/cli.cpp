@@ -90,12 +90,12 @@ TEST_F(rnp_tests, test_cli_rnp_keyfile)
                    FILES "/hello.txt",
                    NULL);
     assert_int_equal(ret, 0);
-    assert_true(file_exists(FILES "/hello.txt.pgp"));
+    assert_true(rnp_file_exists(FILES "/hello.txt.pgp"));
     /* verify signed file */
     ret =
       call_rnp("rnp", "--keyfile", MKEYS "key-pub.asc", "-v", FILES "/hello.txt.pgp", NULL);
     assert_int_equal(ret, 0);
-    assert_int_equal(unlink(FILES "/hello.txt.pgp"), 0);
+    assert_int_equal(rnp_unlink(FILES "/hello.txt.pgp"), 0);
 
     /* sign with keyfile, using user id */
     ret = call_rnp("rnp",
@@ -110,7 +110,7 @@ TEST_F(rnp_tests, test_cli_rnp_keyfile)
                    FILES "/hello.txt",
                    NULL);
     assert_int_equal(ret, 0);
-    assert_true(file_exists(FILES "/hello.txt.asc"));
+    assert_true(rnp_file_exists(FILES "/hello.txt.asc"));
     /* verify signed file */
     ret = call_rnp("rnp", "-f", MKEYS "key-pub.asc", "-v", FILES "/hello.txt.asc", NULL);
     assert_int_equal(ret, 0);
@@ -118,12 +118,12 @@ TEST_F(rnp_tests, test_cli_rnp_keyfile)
     ret =
       call_rnp("rnp", "-f", MKEYS "key-pub-just-key.pgp", "-v", FILES "/hello.txt.asc", NULL);
     assert_int_not_equal(ret, 0);
-    assert_int_equal(unlink(FILES "/hello.txt.asc"), 0);
+    assert_int_equal(rnp_unlink(FILES "/hello.txt.asc"), 0);
 
     /* encrypt with keyfile, using default key */
     ret = call_rnp("rnp", "--keyfile", MKEYS "key-pub.asc", "-e", FILES "/hello.txt", NULL);
     assert_int_equal(ret, 0);
-    assert_true(file_exists(FILES "/hello.txt.pgp"));
+    assert_true(rnp_file_exists(FILES "/hello.txt.pgp"));
     /* decrypt it with raw seckey, without userids and sigs */
     ret = call_rnp("rnp",
                    "--keyfile",
@@ -134,7 +134,7 @@ TEST_F(rnp_tests, test_cli_rnp_keyfile)
                    FILES "/hello.txt.pgp",
                    NULL);
     assert_int_equal(ret, 0);
-    assert_int_equal(unlink(FILES "/hello.txt.pgp"), 0);
+    assert_int_equal(rnp_unlink(FILES "/hello.txt.pgp"), 0);
 
     /* try to encrypt with keyfile, using the signing subkey */
     ret = call_rnp("rnp",
@@ -147,7 +147,7 @@ TEST_F(rnp_tests, test_cli_rnp_keyfile)
                    FILES "/hello.txt",
                    NULL);
     assert_int_not_equal(ret, 0);
-    assert_false(file_exists(FILES "/hello.txt.asc"));
+    assert_false(rnp_file_exists(FILES "/hello.txt.asc"));
     /* now encrypt with keyfile, using the encrypting subkey */
     ret = call_rnp("rnp",
                    "--keyfile",
@@ -159,7 +159,7 @@ TEST_F(rnp_tests, test_cli_rnp_keyfile)
                    FILES "/hello.txt",
                    NULL);
     assert_int_equal(ret, 0);
-    assert_true(file_exists(FILES "/hello.txt.asc"));
+    assert_true(rnp_file_exists(FILES "/hello.txt.asc"));
     /* fail to decrypt it with pubkey */
     ret = call_rnp("rnp",
                    "--keyfile",
@@ -180,7 +180,7 @@ TEST_F(rnp_tests, test_cli_rnp_keyfile)
                    FILES "/hello.txt.asc",
                    NULL);
     assert_int_equal(ret, 0);
-    assert_int_equal(unlink(FILES "/hello.txt.asc"), 0);
+    assert_int_equal(rnp_unlink(FILES "/hello.txt.asc"), 0);
 }
 
 static bool
@@ -208,7 +208,7 @@ test_cli_g10_key_sign(const char *userid)
     if (ret) {
         return false;
     }
-    unlink(FILES "/hello.txt.pgp");
+    rnp_unlink(FILES "/hello.txt.pgp");
     return true;
 }
 
@@ -235,7 +235,7 @@ test_cli_g10_key_encrypt(const char *userid)
     if (ret) {
         return false;
     }
-    unlink(FILES "/hello.txt.pgp");
+    rnp_unlink(FILES "/hello.txt.pgp");
     return true;
 }
 
@@ -251,7 +251,7 @@ TEST_F(rnp_tests, test_cli_g10_operations)
     /* verify back */
     ret = call_rnp("rnp", "--homedir", G10KEYS, "-v", FILES "/hello.txt.pgp", NULL);
     assert_int_equal(ret, 0);
-    assert_int_equal(unlink(FILES "/hello.txt.pgp"), 0);
+    assert_int_equal(rnp_unlink(FILES "/hello.txt.pgp"), 0);
 
     /* encrypt with default g10 key */
     ret = call_rnp("rnp", "--homedir", G10KEYS, "-e", FILES "/hello.txt", NULL);
@@ -267,7 +267,7 @@ TEST_F(rnp_tests, test_cli_g10_operations)
                    FILES "/hello.txt.pgp",
                    NULL);
     assert_int_equal(ret, 0);
-    assert_int_equal(unlink(FILES "/hello.txt.pgp"), 0);
+    assert_int_equal(rnp_unlink(FILES "/hello.txt.pgp"), 0);
 
     /* check dsa/eg key */
     assert_true(test_cli_g10_key_sign("c8a10a7d78273e10"));    // signing key

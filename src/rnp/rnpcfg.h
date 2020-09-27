@@ -317,4 +317,7 @@ uint64_t get_expiration(const char *s);
  */
 int64_t get_creation(const char *s);
 
+bool rnp_win_substitute_cmdline_args(int *argc, char ***argv);
+void rnp_win_clear_args(int argc, char **argv);
+
 #endif

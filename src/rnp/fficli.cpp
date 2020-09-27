@@ -150,7 +150,7 @@ rnp_get_output_filename(
     while (true) {
         if (rnp_file_exists(newpath)) {
             if (overwrite) {
-                unlink(newpath);
+                rnp_unlink(newpath);
                 return true;
             }
 
@@ -163,7 +163,7 @@ rnp_get_output_filename(
                 return false;
             }
             if (strlen(reply) > 0 && toupper(reply[0]) == 'Y') {
-                unlink(newpath);
+                rnp_unlink(newpath);
                 return true;
             }
 
@@ -410,12 +410,13 @@ cli_rnp_init(cli_rnp_t *rnp, rnp_cfg_t *cfg)
     }
 
     /* Configure the results stream. */
+    // TODO: UTF8?
     const char *ress = rnp_cfg_getstr(cfg, CFG_IO_RESS);
     if (!ress || !strcmp(ress, "<stderr>")) {
         rnp->resfp = stderr;
     } else if (strcmp(ress, "<stdout>") == 0) {
         rnp->resfp = stdout;
-    } else if (!(rnp->resfp = fopen(ress, "w"))) {
+    } else if (!(rnp->resfp = rnp_fopen(ress, "w"))) {
         ERR_MSG("cannot open results %s for writing", ress);
         return false;
     }
@@ -853,7 +854,7 @@ cli_rnp_save_keyrings(cli_rnp_t *rnp)
     // check whether we have G10 secret keyring - then need to create directory
     if (cli_rnp_secformat(rnp) == "G10") {
         struct stat path_stat;
-        if (stat(spath.c_str(), &path_stat) != -1) {
+        if (rnp_stat(spath.c_str(), &path_stat) != -1) {
             if (!S_ISDIR(path_stat.st_mode)) {
                 ERR_MSG("G10 keystore should be a directory: %s", spath.c_str());
                 return false;
@@ -1402,8 +1403,8 @@ rnp_cfg_set_ks_info(rnp_cfg_t *cfg)
         secpath = rnp_path_compose(homedir, subdir, SECRING_G10);
 
         struct stat st;
-        bool        pubpath_exists = !stat(pubpath.c_str(), &st);
-        bool        secpath_exists = !stat(secpath.c_str(), &st);
+        bool        pubpath_exists = !rnp_stat(pubpath.c_str(), &st);
+        bool        secpath_exists = !rnp_stat(secpath.c_str(), &st);
 
         if (pubpath_exists && secpath_exists) {
             ks_format = RNP_KEYSTORE_GPG21;
@@ -1473,9 +1474,9 @@ conffile(const char *homedir, char *userid, size_t length)
     static std::regex keyre("^[ \t]*default-key[ \t]+([0-9a-zA-F]+)",
                             std::regex_constants::extended);
 #endif
-
+    // TODO: homedir UTF8?
     (void) snprintf(buf, sizeof(buf), "%s/.gnupg/gpg.conf", homedir);
-    if ((fp = fopen(buf, "r")) == NULL) {
+    if ((fp = rnp_fopen(buf, "r")) == NULL) {
         return false;
     }
 #ifndef RNP_USE_STD_REGEX
