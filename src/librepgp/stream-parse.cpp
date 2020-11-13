@@ -884,7 +884,7 @@ signed_read_single_signature(pgp_source_signed_param_t *param,
     }
     siginfo = &param->siginfos.back();
 
-    if (stream_parse_signature(readsrc, &readsig) != RNP_SUCCESS) {
+    if (stream_parse_signature(*readsrc, readsig) != RNP_SUCCESS) {
         RNP_LOG("failed to parse signature");
         siginfo->unknown = true;
         if (sig) {
@@ -1842,7 +1842,7 @@ encrypted_read_packet_data(pgp_source_encrypted_param_t *param)
         ptype = get_packet_type(ptag);
 
         if (ptype == PGP_PKT_SK_SESSION_KEY) {
-            if ((errcode = stream_parse_sk_sesskey(param->pkt.readsrc, &skey))) {
+            if ((errcode = stream_parse_sk_sesskey(*param->pkt.readsrc, skey))) {
                 return errcode;
             }
             try {
@@ -1852,7 +1852,7 @@ encrypted_read_packet_data(pgp_source_encrypted_param_t *param)
                 return RNP_ERROR_OUT_OF_MEMORY;
             }
         } else if (ptype == PGP_PKT_PK_SESSION_KEY) {
-            if ((errcode = stream_parse_pk_sesskey(param->pkt.readsrc, &pkey))) {
+            if ((errcode = stream_parse_pk_sesskey(*param->pkt.readsrc, pkey))) {
                 return errcode;
             }
             try {
@@ -2168,7 +2168,7 @@ init_signed_src(pgp_parse_handler_t *handler, pgp_source_t *src, pgp_source_t *r
 
         if (ptype == PGP_PKT_ONE_PASS_SIG) {
             pgp_one_pass_sig_t onepass = {};
-            errcode = stream_parse_one_pass(readsrc, &onepass);
+            errcode = stream_parse_one_pass(*readsrc, onepass);
             if (errcode) {
                 if (errcode == RNP_ERROR_READ) {
                     goto finish;

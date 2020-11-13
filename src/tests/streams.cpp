@@ -354,7 +354,7 @@ TEST_F(rnp_tests, test_stream_signatures)
     assert_true(rnp_key_store_load_from_path(pubring, NULL));
     /* load signature */
     assert_rnp_success(init_file_src(&sigsrc, "data/test_stream_signatures/source.txt.sig"));
-    assert_rnp_success(stream_parse_signature(&sigsrc, &sig));
+    assert_rnp_success(stream_parse_signature(sigsrc, sig));
     src_close(&sigsrc);
     /* hash signed file */
     halg = sig.halg;
@@ -392,7 +392,7 @@ TEST_F(rnp_tests, test_stream_signatures)
     sig.set_keyid(pgp_key_get_keyid(key));
     sig.set_creation(create);
     sig.set_expiration(expire);
-    assert_true(signature_fill_hashed_data(&sig));
+    assert_true(signature_fill_hashed_data(sig));
     /* try to sign without decrypting of the secret key */
     assert_true(pgp_hash_copy(&hash, &hash_orig));
     assert_rnp_failure(signature_calculate(&sig, pgp_key_get_material(key), &hash, &rng));
@@ -426,7 +426,7 @@ TEST_F(rnp_tests, test_stream_signatures_revoked_key)
     /* load signature */
     assert_rnp_success(
       init_file_src(&sigsrc, "data/test_stream_signatures/revoked-key-sig.gpg"));
-    assert_rnp_success(stream_parse_signature(&sigsrc, &sig));
+    assert_rnp_success(stream_parse_signature(sigsrc, sig));
     src_close(&sigsrc);
     /* check revocation */
     assert_int_equal(sig.revocation_code(), PGP_REVOCATION_RETIRED);
@@ -941,10 +941,10 @@ TEST_F(rnp_tests, test_stream_key_encrypt)
 
         /* change password and encryption algorithm */
         key.key.sec_protection.symm_alg = PGP_SA_CAMELLIA_192;
-        assert_rnp_success(encrypt_secret_key(&key.key, "passw0rd", &rng));
+        assert_rnp_success(encrypt_secret_key(key.key, "passw0rd", &rng));
         for (auto &subkey : key.subkeys) {
             subkey.subkey.sec_protection.symm_alg = PGP_SA_CAMELLIA_256;
-            assert_rnp_success(encrypt_secret_key(&subkey.subkey, "passw0rd", &rng));
+            assert_rnp_success(encrypt_secret_key(subkey.subkey, "passw0rd", &rng));
         }
         /* write changed key */
         assert_rnp_success(init_mem_dest(&keydst, keybuf, sizeof(keybuf)));
@@ -966,10 +966,10 @@ TEST_F(rnp_tests, test_stream_key_encrypt)
         }
         /* write key without the password */
         key2.key.sec_protection.s2k.usage = PGP_S2KU_NONE;
-        assert_rnp_success(encrypt_secret_key(&key2.key, NULL, NULL));
+        assert_rnp_success(encrypt_secret_key(key2.key, NULL, NULL));
         for (auto &subkey : key2.subkeys) {
             subkey.subkey.sec_protection.s2k.usage = PGP_S2KU_NONE;
-            assert_rnp_success(encrypt_secret_key(&subkey.subkey, NULL, NULL));
+            assert_rnp_success(encrypt_secret_key(subkey.subkey, NULL, NULL));
         }
         /* write changed key */
         assert_rnp_success(init_mem_dest(&keydst, keybuf, sizeof(keybuf)));

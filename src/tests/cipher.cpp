@@ -693,13 +693,13 @@ TEST_F(rnp_tests, s2k_iteration_encode_decode)
 }
 
 static bool
-read_key_pkt(pgp_key_pkt_t *key, const char *path)
+read_key_pkt(pgp_key_pkt_t &key, const char *path)
 {
     pgp_source_t src = {};
     if (init_file_src(&src, path)) {
         return false;
     }
-    bool res = !stream_parse_key(&src, key);
+    bool res = !stream_parse_key(src, key);
     src_close(&src);
     return res;
 }
@@ -713,7 +713,7 @@ TEST_F(rnp_tests, test_validate_key_material)
     rng_init(&rng, RNG_SYSTEM);
 
     /* RSA key and subkey */
-    assert_true(read_key_pkt(&key, KEYS "rsa-pub.pgp"));
+    assert_true(read_key_pkt(key, KEYS "rsa-pub.pgp"));
     assert_rnp_success(validate_pgp_key_material(&key.material, &rng));
     key.material.rsa.n.mpi[key.material.rsa.n.len - 1] &= ~1;
     assert_rnp_failure(validate_pgp_key_material(&key.material, &rng));
@@ -722,7 +722,7 @@ TEST_F(rnp_tests, test_validate_key_material)
     assert_rnp_failure(validate_pgp_key_material(&key.material, &rng));
     key = pgp_key_pkt_t();
 
-    assert_true(read_key_pkt(&key, KEYS "rsa-sub.pgp"));
+    assert_true(read_key_pkt(key, KEYS "rsa-sub.pgp"));
     assert_rnp_success(validate_pgp_key_material(&key.material, &rng));
     key.material.rsa.n.mpi[key.material.rsa.n.len - 1] &= ~1;
     assert_rnp_failure(validate_pgp_key_material(&key.material, &rng));
@@ -731,7 +731,7 @@ TEST_F(rnp_tests, test_validate_key_material)
     assert_rnp_failure(validate_pgp_key_material(&key.material, &rng));
     key = pgp_key_pkt_t();
 
-    assert_true(read_key_pkt(&key, KEYS "rsa-sec.pgp"));
+    assert_true(read_key_pkt(key, KEYS "rsa-sec.pgp"));
     assert_rnp_success(decrypt_secret_key(&key, NULL));
     assert_true(key.material.secret);
     assert_rnp_success(validate_pgp_key_material(&key.material, &rng));
@@ -747,7 +747,7 @@ TEST_F(rnp_tests, test_validate_key_material)
     assert_rnp_success(validate_pgp_key_material(&key.material, &rng));
     key = pgp_key_pkt_t();
 
-    assert_true(read_key_pkt(&key, KEYS "rsa-ssb.pgp"));
+    assert_true(read_key_pkt(key, KEYS "rsa-ssb.pgp"));
     assert_rnp_success(decrypt_secret_key(&key, NULL));
     assert_true(key.material.secret);
     assert_rnp_success(validate_pgp_key_material(&key.material, &rng));
@@ -764,7 +764,7 @@ TEST_F(rnp_tests, test_validate_key_material)
     key = pgp_key_pkt_t();
 
     /* DSA-ElGamal key */
-    assert_true(read_key_pkt(&key, KEYS "dsa-sec.pgp"));
+    assert_true(read_key_pkt(key, KEYS "dsa-sec.pgp"));
     key.material.dsa.q.mpi[key.material.dsa.q.len - 1] += 2;
     assert_rnp_failure(validate_pgp_key_material(&key.material, &rng));
     key.material.dsa.q.mpi[key.material.dsa.q.len - 1] -= 2;
@@ -782,7 +782,7 @@ TEST_F(rnp_tests, test_validate_key_material)
     assert_rnp_failure(validate_pgp_key_material(&key.material, &rng));
     key = pgp_key_pkt_t();
 
-    assert_true(read_key_pkt(&key, KEYS "eg-sec.pgp"));
+    assert_true(read_key_pkt(key, KEYS "eg-sec.pgp"));
     key.material.eg.p.mpi[key.material.eg.p.len - 1] += 2;
     assert_rnp_failure(validate_pgp_key_material(&key.material, &rng));
     key.material.eg.p.mpi[key.material.eg.p.len - 1] -= 2;
@@ -798,7 +798,7 @@ TEST_F(rnp_tests, test_validate_key_material)
     key = pgp_key_pkt_t();
 
     /* ECDSA key */
-    assert_true(read_key_pkt(&key, KEYS "ecdsa-p256-sec.pgp"));
+    assert_true(read_key_pkt(key, KEYS "ecdsa-p256-sec.pgp"));
     assert_rnp_success(validate_pgp_key_material(&key.material, &rng));
     key.material.ec.p.mpi[0] += 2;
     assert_rnp_failure(validate_pgp_key_material(&key.material, &rng));
@@ -811,7 +811,7 @@ TEST_F(rnp_tests, test_validate_key_material)
     key = pgp_key_pkt_t();
 
     /* ECDH key */
-    assert_true(read_key_pkt(&key, KEYS "ecdh-p256-sec.pgp"));
+    assert_true(read_key_pkt(key, KEYS "ecdh-p256-sec.pgp"));
     assert_rnp_success(validate_pgp_key_material(&key.material, &rng));
     key.material.ec.p.mpi[0] += 2;
     assert_rnp_failure(validate_pgp_key_material(&key.material, &rng));
@@ -824,7 +824,7 @@ TEST_F(rnp_tests, test_validate_key_material)
     key = pgp_key_pkt_t();
 
     /* EDDSA key, just test for header since any value can be secret key */
-    assert_true(read_key_pkt(&key, KEYS "ed25519-sec.pgp"));
+    assert_true(read_key_pkt(key, KEYS "ed25519-sec.pgp"));
     assert_rnp_success(validate_pgp_key_material(&key.material, &rng));
     key.material.ec.p.mpi[0] += 2;
     assert_rnp_failure(validate_pgp_key_material(&key.material, &rng));
@@ -832,7 +832,7 @@ TEST_F(rnp_tests, test_validate_key_material)
     key = pgp_key_pkt_t();
 
     /* x25519 key, same as the previous - botan calculates pub key from the secret one */
-    assert_true(read_key_pkt(&key, KEYS "x25519-sec.pgp"));
+    assert_true(read_key_pkt(key, KEYS "x25519-sec.pgp"));
     assert_rnp_success(validate_pgp_key_material(&key.material, &rng));
     key.material.ec.p.mpi[0] += 2;
     assert_rnp_failure(validate_pgp_key_material(&key.material, &rng));

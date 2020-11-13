@@ -762,7 +762,7 @@ stream_dump_signature(rnp_dump_ctx_t *ctx, pgp_source_t *src, pgp_dest_t *dst)
     pgp_signature_t sig;
 
     dst_printf(dst, "Signature packet\n");
-    if (stream_parse_signature(src, &sig)) {
+    if (stream_parse_signature(*src, sig)) {
         indent_dest_increase(dst);
         dst_printf(dst, "failed to parse\n");
         indent_dest_decrease(dst);
@@ -779,7 +779,7 @@ stream_dump_key(rnp_dump_ctx_t *ctx, pgp_source_t *src, pgp_dest_t *dst)
     rnp_result_t      ret;
     pgp_fingerprint_t keyfp = {};
 
-    if ((ret = stream_parse_key(src, &key))) {
+    if ((ret = stream_parse_key(*src, key))) {
         return ret;
     }
 
@@ -896,7 +896,7 @@ stream_dump_userid(pgp_source_t *src, pgp_dest_t *dst)
     rnp_result_t     ret;
     const char *     utype;
 
-    if ((ret = stream_parse_userid(src, &uid))) {
+    if ((ret = stream_parse_userid(*src, uid))) {
         return ret;
     }
 
@@ -936,7 +936,7 @@ stream_dump_pk_session_key(rnp_dump_ctx_t *ctx, pgp_source_t *src, pgp_dest_t *d
     pgp_pk_sesskey_t pkey;
     rnp_result_t     ret;
 
-    if ((ret = stream_parse_pk_sesskey(src, &pkey))) {
+    if ((ret = stream_parse_pk_sesskey(*src, pkey))) {
         return ret;
     }
 
@@ -986,7 +986,7 @@ stream_dump_sk_session_key(pgp_source_t *src, pgp_dest_t *dst)
     pgp_sk_sesskey_t skey;
     rnp_result_t     ret;
 
-    if ((ret = stream_parse_sk_sesskey(src, &skey))) {
+    if ((ret = stream_parse_sk_sesskey(*src, skey))) {
         return ret;
     }
 
@@ -1083,7 +1083,7 @@ stream_dump_one_pass(pgp_source_t *src, pgp_dest_t *dst)
     pgp_one_pass_sig_t onepass;
     rnp_result_t       ret;
 
-    if ((ret = stream_parse_one_pass(src, &onepass))) {
+    if ((ret = stream_parse_one_pass(*src, onepass))) {
         return ret;
     }
 
@@ -1790,7 +1790,7 @@ static rnp_result_t
 stream_dump_signature_json(rnp_dump_ctx_t *ctx, pgp_source_t *src, json_object *pkt)
 {
     pgp_signature_t sig;
-    if (stream_parse_signature(src, &sig)) {
+    if (stream_parse_signature(*src, sig)) {
         return RNP_SUCCESS;
     }
     return stream_dump_signature_pkt_json(ctx, &sig, pkt);
@@ -1805,7 +1805,7 @@ stream_dump_key_json(rnp_dump_ctx_t *ctx, pgp_source_t *src, json_object *pkt)
     pgp_fingerprint_t keyfp = {};
     json_object *     material = NULL;
 
-    if ((ret = stream_parse_key(src, &key))) {
+    if ((ret = stream_parse_key(*src, key))) {
         return ret;
     }
 
@@ -1936,7 +1936,7 @@ stream_dump_userid_json(pgp_source_t *src, json_object *pkt)
     pgp_userid_pkt_t uid;
     rnp_result_t     ret;
 
-    if ((ret = stream_parse_userid(src, &uid))) {
+    if ((ret = stream_parse_userid(*src, uid))) {
         return ret;
     }
 
@@ -1963,7 +1963,7 @@ stream_dump_pk_session_key_json(rnp_dump_ctx_t *ctx, pgp_source_t *src, json_obj
     pgp_pk_sesskey_t pkey;
     rnp_result_t     ret;
 
-    if ((ret = stream_parse_pk_sesskey(src, &pkey))) {
+    if ((ret = stream_parse_pk_sesskey(*src, pkey))) {
         return ret;
     }
 
@@ -2021,7 +2021,7 @@ stream_dump_sk_session_key_json(pgp_source_t *src, json_object *pkt)
     pgp_sk_sesskey_t skey;
     rnp_result_t     ret;
 
-    if ((ret = stream_parse_sk_sesskey(src, &skey))) {
+    if ((ret = stream_parse_sk_sesskey(*src, skey))) {
         return ret;
     }
     if (!obj_add_field_json(pkt, "version", json_object_new_int(skey.version)) ||
@@ -2076,7 +2076,7 @@ stream_dump_one_pass_json(pgp_source_t *src, json_object *pkt)
     pgp_one_pass_sig_t onepass;
     rnp_result_t       ret;
 
-    if ((ret = stream_parse_one_pass(src, &onepass))) {
+    if ((ret = stream_parse_one_pass(*src, onepass))) {
         return ret;
     }
 

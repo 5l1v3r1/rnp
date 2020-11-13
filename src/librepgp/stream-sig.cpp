@@ -58,7 +58,7 @@ signature_set_embedded_sig(pgp_signature_t *sig, pgp_signature_t *esig)
         RNP_LOG("alloc failed");
         return false;
     }
-    if (!stream_write_signature(esig, &memdst)) {
+    if (!stream_write_signature(*esig, memdst)) {
         RNP_LOG("failed to write signature");
         goto finish;
     }
@@ -127,47 +127,39 @@ signature_add_notation_data(pgp_signature_t *sig,
 }
 
 bool
-signature_fill_hashed_data(pgp_signature_t *sig)
+signature_fill_hashed_data(pgp_signature_t &sig)
 {
-    pgp_packet_body_t hbody;
-    bool              res;
-
-    if (!sig) {
-        RNP_LOG("null signature");
-        return false;
-    }
     /* we don't have a need to write v2-v3 signatures */
-    if ((sig->version < PGP_V2) || (sig->version > PGP_V4)) {
-        RNP_LOG("don't know version %d", (int) sig->version);
+    if ((sig.version < PGP_V2) || (sig.version > PGP_V4)) {
+        RNP_LOG("don't know version %d", (int) sig.version);
         return false;
     }
+    try {
+        pgp_packet_body_t hbody(PGP_PKT_RESERVED);
+        if (sig.version < PGP_V4) {
+            hbody.add_byte(sig.type());
+            hbody.add_uint32(sig.creation_time);
+        } else {
+            hbody.add_byte(sig.version);
+            hbody.add_byte(sig.type());
+            hbody.add_byte(sig.palg);
+            hbody.add_byte(sig.halg);
+            hbody.add_subpackets(sig, true);
+        }
 
-    if (!init_packet_body(&hbody, PGP_PKT_RESERVED)) {
-        RNP_LOG("allocation failed");
+        free(sig.hashed_data);
+        sig.hashed_data = (uint8_t *) malloc(hbody.size());
+        if (!sig.hashed_data) {
+            RNP_LOG("allocation failed");
+            return false;
+        }
+        memcpy(sig.hashed_data, hbody.data(), hbody.size());
+        sig.hashed_len = hbody.size();
+        return true;
+    } catch (const std::exception &e) {
+        RNP_LOG("%s", e.what());
         return false;
     }
-
-    if (sig->version < PGP_V4) {
-        res = add_packet_body_byte(&hbody, sig->type()) &&
-              add_packet_body_uint32(&hbody, sig->creation_time);
-    } else {
-        res = add_packet_body_byte(&hbody, sig->version) &&
-              add_packet_body_byte(&hbody, sig->type()) &&
-              add_packet_body_byte(&hbody, sig->palg) &&
-              add_packet_body_byte(&hbody, sig->halg) &&
-              add_packet_body_subpackets(&hbody, sig, true);
-    }
-
-    if (res) {
-        free(sig->hashed_data);
-        /* get ownership on body data */
-        sig->hashed_data = hbody.data;
-        sig->hashed_len = hbody.len;
-        return res;
-    }
-
-    free_packet_body(&hbody);
-    return res;
 }
 
 bool
@@ -188,7 +180,7 @@ signature_hash_key(const pgp_key_pkt_t *key, pgp_hash_t *hash)
     /* call self recursively if hashed data is not filled, to overcome const restriction */
     try {
         pgp_key_pkt_t keycp(*key, true);
-        return key_fill_hashed_data(&keycp) && signature_hash_key(&keycp, hash);
+        return key_fill_hashed_data(keycp) && signature_hash_key(&keycp, hash);
     } catch (const std::exception &e) {
         RNP_LOG("%s", e.what());
         return false;
@@ -509,7 +501,7 @@ armoredpass:
             ret = RNP_ERROR_OUT_OF_MEMORY;
             goto finish;
         }
-        if ((ret = stream_parse_signature(src, &sigs.back()))) {
+        if ((ret = stream_parse_signature(*src, sigs.back()))) {
             sigs.pop_back();
             goto finish;
         }
