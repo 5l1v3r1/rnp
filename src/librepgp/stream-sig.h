@@ -60,7 +60,7 @@ bool signature_add_notation_data(pgp_signature_t *sig,
  * @param sig Signature being populated
  * @return true if sig->hashed_data is filled up correctly or false otherwise
  */
-bool signature_fill_hashed_data(pgp_signature_t *sig);
+bool signature_fill_hashed_data(pgp_signature_t &sig);
 
 /**
  * @brief Hash key packet. Used in signatures and v4 fingerprint calculation.

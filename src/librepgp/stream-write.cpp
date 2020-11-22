@@ -591,7 +591,7 @@ encrypted_add_recipient(pgp_write_handler_t *handler,
     }
 
     /* Writing symmetric key encrypted session key packet */
-    if (!stream_write_pk_sesskey(&pkey, param->pkt.origdst)) {
+    if (!stream_write_pk_sesskey(pkey, *param->pkt.origdst)) {
         ret = RNP_ERROR_WRITE;
         goto finish;
     }
@@ -699,7 +699,7 @@ encrypted_add_password(rnp_symmetric_pass_info_t * pass,
     }
 
     /* Writing symmetric key encrypted session key packet */
-    if (!stream_write_sk_sesskey(&skey, param->pkt.origdst)) {
+    if (!stream_write_sk_sesskey(skey, *param->pkt.origdst)) {
         return RNP_ERROR_WRITE;
     }
     return RNP_SUCCESS;
@@ -1069,7 +1069,7 @@ signed_fill_signature(pgp_dest_signed_param_t *param,
         RNP_LOG("failed to setup signature fields: %s", e.what());
         return RNP_ERROR_OUT_OF_MEMORY;
     }
-    if (!signature_fill_hashed_data(sig)) {
+    if (!signature_fill_hashed_data(*sig)) {
         RNP_LOG("failed to fill the signature data");
         return RNP_ERROR_OUT_OF_MEMORY;
     }
@@ -1121,7 +1121,7 @@ signed_write_signature(pgp_dest_signed_param_t *param,
     }
 
     if (!(ret = signed_fill_signature(param, &sig, signer))) {
-        ret = stream_write_signature(&sig, writedst) ? RNP_SUCCESS : RNP_ERROR_WRITE;
+        ret = stream_write_signature(sig, *writedst) ? RNP_SUCCESS : RNP_ERROR_WRITE;
     }
     return ret;
 }
@@ -1263,7 +1263,7 @@ signed_add_signer(pgp_dest_signed_param_t *param, rnp_signer_info_t *signer, boo
         for (auto it = param->siginfos.rbegin(); it != param->siginfos.rend(); it++) {
             pgp_dest_signer_info_t &sinfo = *it;
             sinfo.onepass.nested = &sinfo == &param->siginfos.front();
-            if (!stream_write_one_pass(&sinfo.onepass, param->writedst)) {
+            if (!stream_write_one_pass(sinfo.onepass, *param->writedst)) {
                 return RNP_ERROR_WRITE;
             }
         }
