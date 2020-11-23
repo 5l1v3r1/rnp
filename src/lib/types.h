@@ -688,6 +688,9 @@ typedef struct pgp_sk_sesskey_t {
     pgp_aead_alg_t aalg{};
     uint8_t        iv[PGP_MAX_BLOCK_SIZE]{};
     unsigned       ivlen{};
+
+    void write(pgp_dest_t &dst) const;
+    rnp_result_t read(pgp_source_t &src) noexcept;
 } pgp_sk_sesskey_t;
 
 /* user revocation info */
