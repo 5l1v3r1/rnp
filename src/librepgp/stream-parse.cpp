@@ -783,7 +783,7 @@ stripped_line_len(uint8_t *begin, uint8_t *end)
 {
     uint8_t *stripped_end = end;
 
-    while ((*stripped_end == CH_CR || *stripped_end == CH_LF) && stripped_end >= begin) {
+    while (stripped_end >= begin && (*stripped_end == CH_CR || *stripped_end == CH_LF)) {
         stripped_end--;
     }
 
